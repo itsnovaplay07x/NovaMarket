@@ -3,48 +3,18 @@ package com.novamarket.nativeapp;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.util.Log;
 
+/** Receives DownloadManager completion and opens Android's installer. */
 public class InstallReceiver extends BroadcastReceiver {
+    private static long expectedId = -1L;
 
-    private static final String TAG = "NovaMarketInstall";
+    public static void register(Context context, long id) { expectedId = id; }
 
-    @Override
-    public void onReceive(Context context, Intent intent) {
-
-        if (intent == null) {
-            return;
-        }
-
-        String action = intent.getAction();
-
-        if (Intent.ACTION_PACKAGE_ADDED.equals(action)) {
-
-            String packageName = null;
-
-            if (intent.getData() != null) {
-                packageName = intent.getData().getSchemeSpecificPart();
-            }
-
-            Log.d(
-                    TAG,
-                    "Package installed: " +
-                            (packageName != null ? packageName : "unknown")
-            );
-
-        } else if (Intent.ACTION_PACKAGE_REMOVED.equals(action)) {
-
-            String packageName = null;
-
-            if (intent.getData() != null) {
-                packageName = intent.getData().getSchemeSpecificPart();
-            }
-
-            Log.d(
-                    TAG,
-                    "Package removed: " +
-                            (packageName != null ? packageName : "unknown")
-            );
-        }
+    @Override public void onReceive(Context context, Intent intent) {
+        if (!DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) return;
+        long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L);
+        if (id <= 0 || id != expectedId) return;
+        try { InstallerEngine.openDownloadedPackage(context, id); }
+        catch (Exception ignored) { }
     }
 }
