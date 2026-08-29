@@ -10,6 +10,11 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.view.View;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONObject;
 
 /**
@@ -28,6 +33,37 @@ public class MainActivity extends Activity {
         webView = new WebView(this);
         setContentView(webView);
 
+        // Android 15+ enforces edge-to-edge for targetSdk 35.
+        // Keep the web content visually inside the status/navigation bars
+        // by applying the real system-bar insets to the WebView.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+
+        WindowCompat.getInsetsController(getWindow(), webView)
+                .setAppearanceLightStatusBars(true);
+        WindowCompat.getInsetsController(getWindow(), webView)
+                .setAppearanceLightNavigationBars(true);
+
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
+            Insets systemBars = insets.getInsets(
+                    WindowInsetsCompat.Type.statusBars()
+                            | WindowInsetsCompat.Type.navigationBars()
+                            | WindowInsetsCompat.Type.displayCutout()
+            );
+
+            // Do not let the web UI sit underneath the phone's
+            // status icons or gesture/navigation area.
+            view.setPadding(
+                    systemBars.left,
+                    systemBars.top,
+                    systemBars.right,
+                    systemBars.bottom
+            );
+
+            return insets;
+        });
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -35,6 +71,7 @@ public class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
+        webView.setBackgroundColor(android.graphics.Color.rgb(247, 245, 252));
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
         webView.addJavascriptInterface(new NovaMarketBridge(this), "NovaMarketNative");
