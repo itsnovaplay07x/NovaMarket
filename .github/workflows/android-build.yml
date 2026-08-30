@@ -1,10 +1,10 @@
-name: Build NovaMarket APK
+name: Build NovaMarket Android
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,103 +14,42 @@ jobs:
     name: Build NovaMarket APK
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: android
+
     steps:
+      - name: Checkout NovaMarket
+        uses: actions/checkout@v5
 
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup Java
+      - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
-      - name: Find NovaMarket package
-        shell: bash
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify Android project
         run: |
-          echo "Repository:"
-          pwd
+          test -f settings.gradle
+          test -f build.gradle
+          test -f app/build.gradle
+          test -f app/src/main/AndroidManifest.xml
 
-          echo "Files:"
-          ls -la
-
-          echo "Searching for package.json..."
-
-          find . \
-            -type f \
-            -name "package.json" \
-            -not -path "./node_modules/*" \
-            -print
-
-      - name: Install dependencies and build
-        shell: bash
-        run: |
-          set -e
-
-          PACKAGE_FILE=$(find . \
-            -type f \
-            -name "package.json" \
-            -not -path "./node_modules/*" \
-            | head -n 1)
-
-          if [ -z "$PACKAGE_FILE" ]; then
-            echo "ERROR: package.json was not found."
-            echo "The NovaMarket Node/Capacitor project is missing package.json."
-            exit 1
-          fi
-
-          APP_DIR=$(dirname "$PACKAGE_FILE")
-
-          echo "Using project directory:"
-          echo "$APP_DIR"
-
-          cd "$APP_DIR"
-
-          echo "Installing dependencies..."
-          npm install
-
-          echo "Checking Capacitor..."
-
-          if [ ! -d "android" ]; then
-            echo "Android project not found."
-            echo "Creating Android project..."
-            npx cap add android
-          fi
-
-          echo "Syncing NovaMarket..."
-          npx cap sync android
-
-          echo "Building APK..."
-          cd android
-
-          chmod +x gradlew
-
-          ./gradlew assembleDebug --no-daemon
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
 
       - name: Verify APK
-        shell: bash
         run: |
-          APK=$(find . \
-            -type f \
-            -path "*/app/build/outputs/apk/debug/app-debug.apk" \
-            | head -n 1)
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
 
-          if [ -z "$APK" ]; then
-            echo "ERROR: APK was not generated."
-            exit 1
-          fi
-
-          echo "APK generated successfully:"
-          ls -lh "$APK"
-
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: NovaMarket-debug-apk
-          path: "**/app/build/outputs/apk/debug/app-debug.apk"
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
