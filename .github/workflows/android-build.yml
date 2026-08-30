@@ -1,10 +1,10 @@
-name: Build NovaMarket Android
+name: Build NovaMarket APK
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,12 +14,8 @@ jobs:
     name: Build NovaMarket APK
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: android
-
     steps:
-      - name: Checkout NovaMarket
+      - name: Checkout repository
         uses: actions/checkout@v5
 
       - name: Set up Java 17
@@ -27,29 +23,42 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Verify Android project
         run: |
+          echo "Checking NovaMarket Android project..."
           test -f settings.gradle
           test -f build.gradle
+          test -f gradle.properties
           test -f app/build.gradle
           test -f app/src/main/AndroidManifest.xml
+          echo "Android project structure OK."
 
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
+      - name: Build NovaMarket debug APK
+        run: |
+          chmod +x ./gradlew 2>/dev/null || true
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug --stacktrace
+          else
+            gradle assembleDebug --stacktrace
+          fi
 
       - name: Verify APK
         run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK was not generated."
+            exit 1
+          fi
+          echo "APK generated successfully:"
+          ls -lh "$APK"
 
-      - name: Upload APK artifact
+      - name: Upload NovaMarket APK
         uses: actions/upload-artifact@v4
         with:
           name: NovaMarket-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
